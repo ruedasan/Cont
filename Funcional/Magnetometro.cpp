@@ -1,3 +1,4 @@
+// Adaptado de: https://mischianti.org/gy-273-qmc5883l-clone-hmc5883l-magnetometer-for-arduino-esp8266-and-esp32/#google_vignette
 #include <Arduino.h>
 #include <QMC5883LCompass.h>
  
