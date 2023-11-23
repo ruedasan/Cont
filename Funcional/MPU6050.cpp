@@ -1,3 +1,4 @@
+// Adaptado de: https://www.instructables.com/Connecting-MPU6050-With-ESP32/
 #include <Arduino.h>
 #include <Wire.h>
 
