@@ -1,3 +1,4 @@
+// Adaptado de: https://github.com/ahmadlogs/arduino-ide-examples/blob/main/esp32-gps-tracker/esp32-gps-tracker.ino
 #include <Arduino.h>
 #include <TinyGPS++.h>
 
