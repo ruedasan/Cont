@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <QMC5883LCompass.h>
  
+
 QMC5883LCompass compass;
  
 int calibrationData[3][2];
@@ -109,14 +110,25 @@ void loop() {
           Serial.println();
  
           // Write direction
-          if((azimut < 22.5)  || (azimut > 337.5 ))  Serial.print("North     ");
-          if((azimut > 22.5)  && (azimut < 67.5 ))   Serial.print("North-East");
-          if((azimut > 67.5)  && (azimut < 112.5 ))  Serial.print("East      ");
-          if((azimut > 112.5) && (azimut < 157.5 ))  Serial.print("South-East");
-          if((azimut > 157.5) && (azimut < 202.5 ))  Serial.print("South     ");
-          if((azimut > 202.5) && (azimut < 247.5 ))  Serial.print("SOuth-West");
-          if((azimut > 247.5) && (azimut < 292.5 ))  Serial.print("West      ");
-          if((azimut > 292.5) && (azimut < 337.5 ))  Serial.print("North-West");
+// Reemplaza las condiciones existentes para todas las direcciones con las siguientes
+azimut = (azimut + 360) % 360; // Asegura que azimut esté en el rango de 0 a 360 grados
+
+if ((azimut >= 337.5) || (azimut < 22.5))
+    Serial.print("North     ");
+if ((azimut >= 22.5) && (azimut < 67.5))
+    Serial.print("North-East");
+if ((azimut >= 67.5) && (azimut < 112.5))
+    Serial.print("East      ");
+if ((azimut >= 112.5) && (azimut < 157.5))
+    Serial.print("South-East");
+if ((azimut >= 157.5) && (azimut < 202.5))
+    Serial.print("South     ");
+if ((azimut >= 202.5) && (azimut < 247.5))
+    Serial.print("South-West");
+if ((azimut >= 247.5) && (azimut < 292.5))
+    Serial.print("West      ");
+if ((azimut >= 292.5) && (azimut < 337.5))
+    Serial.print("North-West");
  
           Serial.print(" Azimuth: ");Serial.print(azimut);
           Serial.print(" Bearing: ");Serial.print(bearing);
@@ -131,3 +143,5 @@ void loop() {
           delay(250);
     }
 }
+
+
