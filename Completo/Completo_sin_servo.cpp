@@ -1,3 +1,4 @@
+
 // Grupo 4
 
 #include <Arduino.h>
@@ -6,6 +7,7 @@
 #include <TinyGPS++.h>
 #include <QMC5883LCompass.h>
 #include <SD.h>
+#include <ESP32Servo.h>
 
 Adafruit_BMP280 bmp;  // BMP280 sensor (I2C)
 TinyGPSPlus gps;       // Object to handle GPS
@@ -13,7 +15,9 @@ TinyGPSPlus gps;       // Object to handle GPS
 #define TXD2 17
 HardwareSerial neogps(1);  // Communication with NEO-6M GPS module
 QMC5883LCompass compass;
+Servo myservo;
 
+const int servoPin = 5;
 int calibrationData[3][2];
 bool changed = false;
 bool done = false;
@@ -50,6 +54,7 @@ void setup() {
   compass.init();  // Compass initialization
     Wire.begin();
   setupMPU();
+  myservo.attach(servoPin);  // Asignar el pin del servo
 
     if (!SD.begin(5)) {  // Pin 10 para el módulo CS de la tarjeta SD
     Serial.println("Error al iniciar la tarjeta SD");
@@ -174,7 +179,13 @@ void loop() {
 
   recordAccelRegisters();
   recordGyroRegisters();
+
+  if (bmp.readAltitude() > 2200) {
+    for (int i = 0; i < 270; i++) {
+      myservo.write(i);
+    }
   }
+}
 
 
   void setupMPU(){
