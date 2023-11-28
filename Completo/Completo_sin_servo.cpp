@@ -54,6 +54,8 @@ void setup() {
     if (!SD.begin(5)) {  // Pin 10 para el módulo CS de la tarjeta SD
     Serial.println("Error al iniciar la tarjeta SD");
     while (1);
+    String fileName = "/data" +String(fileCounter) + ".txt";
+    dataFile = SD.open(fileName, FILE_APPEND);
   }
 
   if (!status) {
@@ -151,8 +153,6 @@ void loop() {
 
   if (currentMillis - previousMillis >= interval) {
     // Agregar datos al archivo cada 30 segundos
-  String fileName = "/data" +String(fileCounter) + ".txt";
-  dataFile = SD.open(fileName, FILE_APPEND);
     appendToFile();
     previousMillis = currentMillis;
   }else{
