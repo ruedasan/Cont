@@ -23,6 +23,7 @@ bool changed = false;
 bool done = false;
 int t = 0;
 int c = 0;
+float altura = 0;
 
 bool calibrated = false;
 int hourBogota;
@@ -59,7 +60,7 @@ void setup() {
     if (!SD.begin(5)) {  // Pin 10 para el módulo CS de la tarjeta SD
     Serial.println("Error al iniciar la tarjeta SD");
     while (1);
-    String fileName = "/data" +String(fileCounter) + ".txt";
+    String fileName = "/data" + String(fileCounter) + ".txt";
     dataFile = SD.open(fileName, FILE_APPEND);
   }
 
@@ -69,6 +70,8 @@ void setup() {
   }
 
   bmp.setSampling(Adafruit_BMP280::MODE_NORMAL, Adafruit_BMP280::SAMPLING_X2, Adafruit_BMP280::SAMPLING_X16, Adafruit_BMP280::FILTER_X16, Adafruit_BMP280::STANDBY_MS_500);
+
+  altura = bmp.readAltitude();
 }
 
 void loop() {
@@ -334,7 +337,8 @@ void printData() {
   Serial.println(" Pa");
 
   Serial.print(F("Approx altitude = "));
-  Serial.print(bmp.readAltitude(1013.25)); /* Adjusted to local prediction */
+  //Serial.print(bmp.readAltitude(1013.25)); /* Adjusted to local prediction */
+  Serial.println(bmp.readAltitude() - altura);
   Serial.println(" m");
 
   Serial.println("MPU6050 Data:");
