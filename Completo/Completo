@@ -1,4 +1,8 @@
 
+/*  
+   Github : https://github.com/ruedasan/Cont/blob/main/Completo/Completo
+*/
+
 // Grupo 4
 
 #include <Arduino.h>
@@ -23,12 +27,14 @@ Servo myservo;
 
 Adafruit_MPU6050 mpu;
 File dataFile;
+sensors_event_t a, g, temp;
 
 int calibrationData[3][2];
 bool changed = false;
 bool done = false;
 int t = 0;
 int c = 0;
+int cont = 0;
 
 const int chipSelect = 5;
 bool calibrated = false;
@@ -38,7 +44,7 @@ int fileCounter = 0;
 float initial_height = 0;
 float elevated_height = 0;
 int spins = 0;
-int times = 40000;
+const int times = 20;  // 20 seg
 
 const int pinVin = A0;
 
@@ -146,6 +152,8 @@ void setup() {
 
 void loop() {
   boolean newData = false;
+  cont++;
+  Serial.println("cont: " + cont);
 
   for (unsigned long start = millis(); millis() - start < 1000;) {
     while (neogps.available()) {
@@ -238,15 +246,16 @@ void loop() {
   hourBogota = gps.time.hour() - 5;
     if (hourBogota < 0) {
       hourBogota += 24;  // Manejar casos donde la resta resulta en un valor negativo
-    }
+}
 
   cutRope();
   appendToFile();
-  }
+
+}
 
 
 void cutRope() {
-  if (spins < 5 && elevated_height >= 0.1) {
+  if (spins < 5 && elevated_height >= 0.3) {
     myservo.write(0);
     delay(1000);  // Espera 1 segundo
     myservo.write(180);
@@ -257,22 +266,8 @@ void cutRope() {
 
 
 void appendToFile() {
-  if (dataFile && millis() < times) {
-    sensors_event_t a, g, temp;
+  if (dataFile && cont < times) {
     mpu.getEvent(&a, &g, &temp);
-
-    dataFile.println("Tiempo: " + String(hourBogota) + ":" + String(gps.time.minute()) + ":" + String(gps.time.second()));
-    dataFile.println("Datos de GPS:");
-    dataFile.println("Latitud: " + String(gps.location.lat(), 6) + "°");
-    dataFile.println("Longitud: " + String(gps.location.lng(), 6) + "°");
-    dataFile.println("Datos BMP280:");
-    dataFile.println("Temperatura = " + String(bmp.readTemperature()) + " °C");
-    dataFile.println("Presión = " + String(bmp.readPressure()) + " Pa");
-    dataFile.println("Altitud aproximada = " + String(bmp.readAltitude(1013.25)) + " mts");
-    dataFile.println("Altura elevación = " + String(elevated_height) + "mts");
-    dataFile.println("Datos MPU6050:");
-    dataFile.println("Gyro (deg) X=" + String(a.acceleration.x) + "m/s" + " Y=" + String(a.acceleration.y) + "m/s" + " Z=" + String(a.acceleration.z) + "m/s");
-    dataFile.println("Aceleración (g) X=" + String(a.gyro.x) + "°" + " Y=" + String(a.gyro.y) + "°" + " Z=" + String(a.gyro.z) + "°");
 
     int x, y, z;
 
@@ -282,8 +277,24 @@ void appendToFile() {
     y = compass.getY();
     z = compass.getZ();
 
+    dataFile.println("Tiempo: " + String(hourBogota) + ":" + String(gps.time.minute()) + ":" + String(gps.time.second()));
+    dataFile.println("Datos de GPS:");
+    dataFile.println("Latitud: " + String(gps.location.lat(), 6) + "°");
+    dataFile.println("Longitud: " + String(gps.location.lng(), 6) + "°");
+    dataFile.println("Fecha: " + String(gps.date.year(), 6) + ":"  + String(gps.date.month(), 6) + ":" + String(gps.date.day(), 6));
+    dataFile.println("Datos BMP280:");
+    dataFile.println("Temperatura = " + String(bmp.readTemperature()) + " °C");
+    dataFile.println("Presión = " + String(bmp.readPressure()) + " Pa");
+    dataFile.println("Altitud aproximada = " + String(bmp.readAltitude(1013.25)) + " mts");
+    dataFile.println("Altura elevación = " + String(elevated_height) + " mts");
+    dataFile.println("Datos MPU6050:");
+    dataFile.println("Gyro (deg) X=" + String(a.acceleration.x) + "m/s" + " Y=" + String(a.acceleration.y) + "m/s" + " Z=" + String(a.acceleration.z) + "m/s");
+    dataFile.println("Aceleración (g) X=" + String(a.gyro.x) + "°" + " Y=" + String(a.gyro.y) + "°" + " Z=" + String(a.gyro.z) + "°");
+    dataFile.println("FlujoCampoX: " + String(x) + " FlujoCampoY: " + String(y) + " FlujoCampoZ: " + String(z));
+    Serial.println("FlujoCampoX: " + String(x) + " FlujoCampoY: " + String(y) + " FlujoCampoZ: " + String(z));
+    Serial.println("cont: " + String(cont));
+    Serial.println("times: " + String(times));
 
-    dataFile.println("FlujoCampoX: " + String(x) + "FlujoCampoY: " + String(y) + "FlujoCampoZ: " + String(z));
     int azimut = compass.getAzimuth();
 
     azimut = (azimut + 360) % 360;
@@ -313,7 +324,8 @@ void appendToFile() {
 
     dataFile.println("--------------------");  // Separador entre conjuntos de datos
 
-    printVoltage();
+    // printVoltage();
+    Serial.println("times: " + String(times));
 
     Serial.println("Datos agregados al archivo: ");
     fileCounter++;
@@ -365,8 +377,7 @@ void printData() {
 
   Serial.print(F("Approx altitude = "));
   elevated_height = bmp.readAltitude() - initial_height;
-  Serial.println(elevated_height); /* Adjusted to local prediction */
-  Serial.println(" m");
+  Serial.println(String(elevated_height) + "mts"); /* Adjusted to local prediction */
 
   int x, y, z;
 
@@ -407,7 +418,7 @@ void printData() {
   Serial.print(azimut);
 
   /* Get new sensor events with the readings */
-  sensors_event_t a, g, temp;
+  // sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
 
   /* Print out the values */
