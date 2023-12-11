@@ -1,0 +1,432 @@
+
+// Grupo 4
+
+#include <Arduino.h>
+#include <Wire.h>
+#include <Adafruit_BMP280.h>
+#include <TinyGPS++.h>
+#include <QMC5883LCompass.h>
+#include <SD.h>
+#include <SPI.h>
+#include <ESP32Servo.h>
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
+
+
+Adafruit_BMP280 bmp;  // BMP280 sensor (I2C)
+TinyGPSPlus gps;       // Object to handle GPS
+#define RXD2 16
+#define TXD2 17
+HardwareSerial neogps(1);  // Communication with NEO-6M GPS module
+QMC5883LCompass compass;
+Servo myservo;
+
+Adafruit_MPU6050 mpu;
+File dataFile;
+
+int calibrationData[3][2];
+bool changed = false;
+bool done = false;
+int t = 0;
+int c = 0;
+
+const int chipSelect = 5;
+bool calibrated = false;
+int hourBogota;
+const int servoPin = 2;   // para cambiara futuro 
+int fileCounter = 0;
+float initial_height = 0;
+float elevated_height = 0;
+int spins = 0;
+int times = 40000;
+
+const int pinVin = A0;
+
+void appendToFile();
+void cutRope();
+void printVoltage();
+void printData();
+
+void setup() {
+  // inicial : 115200
+  Serial.begin(115200);  // Serial communication with the Arduino IDE monitor
+  neogps.begin(9600, SERIAL_8N1, RXD2, TXD2);  // GPS module configuration
+  unsigned status = bmp.begin(0x76);  // BMP280 initialization
+  compass.init();  // Compass initialization
+    Wire.begin();
+
+  Serial.println("Adafruit MPU6050 test!");
+  
+  // Try to initialize!
+  if (!mpu.begin()) {
+    Serial.println("Failed to find MPU6050 chip");
+    while (1) {
+      delay(10);
+    }
+  }
+  Serial.println("MPU6050 Found!");
+
+  mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+  Serial.print("Accelerometer range set to: ");
+  switch (mpu.getAccelerometerRange()) {
+  case MPU6050_RANGE_2_G:
+    Serial.println("+-2G");
+    break;
+  case MPU6050_RANGE_4_G:
+    Serial.println("+-4G");
+    break;
+  case MPU6050_RANGE_8_G:
+    Serial.println("+-8G");
+    break;
+  case MPU6050_RANGE_16_G:
+    Serial.println("+-16G");
+    break;
+  }
+  mpu.setGyroRange(MPU6050_RANGE_500_DEG);
+  Serial.print("Gyro range set to: ");
+  switch (mpu.getGyroRange()) {
+  case MPU6050_RANGE_250_DEG:
+    Serial.println("+- 250 deg/s");
+    break;
+  case MPU6050_RANGE_500_DEG:
+    Serial.println("+- 500 deg/s");
+    break;
+  case MPU6050_RANGE_1000_DEG:
+    Serial.println("+- 1000 deg/s");
+    break;
+  case MPU6050_RANGE_2000_DEG:
+    Serial.println("+- 2000 deg/s");
+    break;
+  }
+
+  mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
+  Serial.print("Filter bandwidth set to: ");
+  switch (mpu.getFilterBandwidth()) {
+  case MPU6050_BAND_260_HZ:
+    Serial.println("260 Hz");
+    break;
+  case MPU6050_BAND_184_HZ:
+    Serial.println("184 Hz");
+    break;
+  case MPU6050_BAND_94_HZ:
+    Serial.println("94 Hz");
+    break;
+  case MPU6050_BAND_44_HZ:
+    Serial.println("44 Hz");
+    break;
+  case MPU6050_BAND_21_HZ:
+    Serial.println("21 Hz");
+    break;
+  case MPU6050_BAND_10_HZ:
+    Serial.println("10 Hz");
+    break;
+  case MPU6050_BAND_5_HZ:
+    Serial.println("5 Hz");
+    break;
+  }
+
+  myservo.attach(servoPin);  // Asignar el pin del servo
+
+  if (!status) {
+    Serial.println(F("Could not find a valid BMP280 sensor, check wiring or try a different address!"));
+    while (1) delay(10);
+  }
+
+  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL, Adafruit_BMP280::SAMPLING_X2, Adafruit_BMP280::SAMPLING_X16, Adafruit_BMP280::FILTER_X16, Adafruit_BMP280::STANDBY_MS_500);
+  initial_height = bmp.readAltitude();
+
+  if (!SD.begin(chipSelect)) {  // Pin 10 para el módulo CS de la tarjeta SD
+    Serial.println("Error al iniciar la tarjeta SD");
+  } else {
+    String fileName = "/data" + String(fileCounter) + ".txt";
+    dataFile = SD.open(fileName, FILE_APPEND);
+    Serial.println("Se creo archivo");
+  }
+}
+
+void loop() {
+  boolean newData = false;
+
+  for (unsigned long start = millis(); millis() - start < 1000;) {
+    while (neogps.available()) {
+      if (gps.encode(neogps.read())) {
+        newData = true;
+      }
+    }
+  }
+
+  if (!calibrated){
+        //If not calibrated
+      int x, y, z;
+ 
+      //Read compass values
+      compass.read();
+ 
+     // Return XYZ readings
+      x = compass.getX();
+      y = compass.getY();
+      z = compass.getZ();
+ 
+      changed = false;
+ 
+      if(x < calibrationData[0][0]) {
+        calibrationData[0][0] = x;
+        changed = true;
+      }
+      if(x > calibrationData[0][1]) {
+        calibrationData[0][1] = x;
+        changed = true;
+      }
+ 
+      if(y < calibrationData[1][0]) {
+        calibrationData[1][0] = y;
+        changed = true;
+      }
+      if(y > calibrationData[1][1]) {
+        calibrationData[1][1] = y;
+        changed = true;
+      }
+ 
+      if(z < calibrationData[2][0]) {
+        calibrationData[2][0] = z;
+        changed = true;
+      }
+      if(z > calibrationData[2][1]) {
+        calibrationData[2][1] = z;
+        changed = true;
+      }
+ 
+      if (changed && !done) {
+        Serial.println("CALIBRATING... Keep moving your sensor around.");
+        c = millis();
+      }
+        t = millis();
+ 
+ 
+      if ( (t - c > 5000) && !done) {
+        done = true;
+        Serial.println("DONE.");
+        Serial.println();
+ 
+        Serial.print("compass.setCalibration(");
+        Serial.print(calibrationData[0][0]);
+        Serial.print(", ");
+        Serial.print(calibrationData[0][1]);
+        Serial.print(", ");
+        Serial.print(calibrationData[1][0]);
+        Serial.print(", ");
+        Serial.print(calibrationData[1][1]);
+        Serial.print(", ");
+        Serial.print(calibrationData[2][0]);
+        Serial.print(", ");
+        Serial.print(calibrationData[2][1]);
+        Serial.println(");");
+ 
+        compass.setCalibration( calibrationData[0][0], calibrationData[0][1], calibrationData[1][0],
+                                calibrationData[1][1], calibrationData[2][0], calibrationData[2][1]);
+        calibrated = true;
+        }
+    }
+
+    delay(250);
+    if (newData) {
+    newData = false;
+    printData(); // Imprimir datos del GPS
+  } else {
+    Serial.println("No GPS Data");
+  }
+  hourBogota = gps.time.hour() - 5;
+    if (hourBogota < 0) {
+      hourBogota += 24;  // Manejar casos donde la resta resulta en un valor negativo
+    }
+
+  cutRope();
+  appendToFile();
+  }
+
+
+void cutRope() {
+  if (spins < 5 && elevated_height >= 0.1) {
+    myservo.write(0);
+    delay(1000);  // Espera 1 segundo
+    myservo.write(180);
+    delay(1000);  // Espera 1 segundo
+    spins++;
+  }
+}
+
+
+void appendToFile() {
+  if (dataFile && millis() < times) {
+    sensors_event_t a, g, temp;
+    mpu.getEvent(&a, &g, &temp);
+
+    dataFile.println("Tiempo: " + String(hourBogota) + ":" + String(gps.time.minute()) + ":" + String(gps.time.second()));
+    dataFile.println("Datos de GPS:");
+    dataFile.println("Latitud: " + String(gps.location.lat(), 6) + "°");
+    dataFile.println("Longitud: " + String(gps.location.lng(), 6) + "°");
+    dataFile.println("Datos BMP280:");
+    dataFile.println("Temperatura = " + String(bmp.readTemperature()) + " °C");
+    dataFile.println("Presión = " + String(bmp.readPressure()) + " Pa");
+    dataFile.println("Altitud aproximada = " + String(bmp.readAltitude(1013.25)) + " mts");
+    dataFile.println("Altura elevación = " + String(elevated_height) + "mts");
+    dataFile.println("Datos MPU6050:");
+    dataFile.println("Gyro (deg) X=" + String(a.acceleration.x) + "m/s" + " Y=" + String(a.acceleration.y) + "m/s" + " Z=" + String(a.acceleration.z) + "m/s");
+    dataFile.println("Aceleración (g) X=" + String(a.gyro.x) + "°" + " Y=" + String(a.gyro.y) + "°" + " Z=" + String(a.gyro.z) + "°");
+
+    int x, y, z;
+
+    compass.read();
+
+    x = compass.getX();
+    y = compass.getY();
+    z = compass.getZ();
+
+
+    dataFile.println("FlujoCampoX: " + String(x) + "FlujoCampoY: " + String(y) + "FlujoCampoZ: " + String(z));
+    int azimut = compass.getAzimuth();
+
+    azimut = (azimut + 360) % 360;
+
+    dataFile.println();
+    dataFile.print("Dirección: ");
+
+    if ((azimut >= 337.5) || (azimut < 22.5))
+      dataFile.print("Norte");
+    if ((azimut >= 22.5) && (azimut < 67.5))
+      dataFile.print("Noreste");
+    if ((azimut >= 67.5) && (azimut < 112.5))
+      dataFile.print("Este");
+    if ((azimut >= 112.5) && (azimut < 157.5))
+      dataFile.print("Sureste");
+    if ((azimut >= 157.5) && (azimut < 202.5))
+      dataFile.print("Sur");
+    if ((azimut >= 202.5) && (azimut < 247.5))
+      dataFile.print("Suroeste");
+    if ((azimut >= 247.5) && (azimut < 292.5))
+      dataFile.print("Oeste");
+    if ((azimut >= 292.5) && (azimut < 337.5))
+      dataFile.print("Noroeste");
+
+    dataFile.print(" Azimut: ");
+    dataFile.println(azimut);
+
+    dataFile.println("--------------------");  // Separador entre conjuntos de datos
+
+    printVoltage();
+
+    Serial.println("Datos agregados al archivo: ");
+    fileCounter++;
+  } else {
+    dataFile.close();
+    Serial.println("Cerrar archivo");
+  }
+}
+
+
+void printVoltage() {
+  int valorAnalogico = analogRead(pinVin);
+  float voltaje = valorAnalogico / 4095.0 * 3.3; // Convertir el valor a voltaje (suponiendo una referencia de 3.3V)
+
+  Serial.print("Voltaje: ");
+  dataFile.println("Voltaje: ");
+  Serial.print(voltaje, 2); // Mostrar el voltaje con 2 decimales
+  dataFile.print(voltaje, 2);
+  Serial.println("V");
+  dataFile.println("V");
+}
+
+void printData() {
+  if (gps.location.isValid()) {
+    Serial.print("Time: ");
+    Serial.print(hourBogota);
+    Serial.print(":");
+    Serial.print(gps.time.minute());
+    Serial.print(":");
+    Serial.println(gps.time.second());
+    Serial.println("GPS Data:");
+    Serial.print("Latitude: ");
+    Serial.println(gps.location.lat(), 6);
+
+    Serial.print("Longitude: ");
+    Serial.println(gps.location.lng(), 6);
+  } else {
+    Serial.println("Invalid GPS Data");
+  }
+
+  Serial.println("BMP280 Data:");
+  Serial.print(F("Temperature = "));
+  Serial.print(bmp.readTemperature());
+  Serial.println(" *C");
+
+  Serial.print(F("Pressure = "));
+  Serial.print(bmp.readPressure());
+  Serial.println(" Pa");
+
+  Serial.print(F("Approx altitude = "));
+  elevated_height = bmp.readAltitude() - initial_height;
+  Serial.println(elevated_height); /* Adjusted to local prediction */
+  Serial.println(" m");
+
+  int x, y, z;
+
+  //Read compass values
+  compass.read();
+
+  //Return XYZ readings
+  x = compass.getX();
+  y = compass.getY();
+  z = compass.getZ();
+
+  int azimut = compass.getAzimuth();
+
+
+  //Write direction
+  //Reemplaza las condiciones existentes para todas las direcciones con las siguientes
+  azimut = (azimut + 360) % 360; // Asegura que azimut esté en el rango de 0 a 360 grados
+  Serial.println("GY-273 Data:");
+
+  if ((azimut >= 337.5) || (azimut < 22.5))
+    Serial.print("North     ");
+  if ((azimut >= 22.5) && (azimut < 67.5))
+    Serial.print("North-East");
+  if ((azimut >= 67.5) && (azimut < 112.5))
+    Serial.print("East      ");
+  if ((azimut >= 112.5) && (azimut < 157.5))
+    Serial.print("South-East");
+  if ((azimut >= 157.5) && (azimut < 202.5))
+    Serial.print("South     ");
+  if ((azimut >= 202.5) && (azimut < 247.5))
+    Serial.print("South-West");
+  if ((azimut >= 247.5) && (azimut < 292.5))
+    Serial.print("West      ");
+  if ((azimut >= 292.5) && (azimut < 337.5))
+    Serial.print("North-West");
+
+  Serial.print(" Azimuth: ");
+  Serial.print(azimut);
+
+  /* Get new sensor events with the readings */
+  sensors_event_t a, g, temp;
+  mpu.getEvent(&a, &g, &temp);
+
+  /* Print out the values */
+  Serial.print("Acceleration X: ");
+  Serial.print(a.acceleration.x);
+  Serial.print(", Y: ");
+  Serial.print(a.acceleration.y);
+  Serial.print(", Z: ");
+  Serial.print(a.acceleration.z);
+  Serial.println(" m/s^2");
+
+  Serial.print("Rotation X: ");
+  Serial.print(g.gyro.x);
+  Serial.print(", Y: ");
+  Serial.print(g.gyro.y);
+  Serial.print(", Z: ");
+  Serial.print(g.gyro.z);
+  Serial.println(" rad/s");
+
+
+  Serial.println();
+}
