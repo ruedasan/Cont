@@ -153,7 +153,7 @@ void setup() {
 void loop() {
   boolean newData = false;
   cont++;
-  Serial.println("cont: " + cont);
+  Serial.println("cont: " + String(cont));
 
   for (unsigned long start = millis(); millis() - start < 1000;) {
     while (neogps.available()) {
@@ -255,7 +255,7 @@ void loop() {
 
 
 void cutRope() {
-  if (spins < 5 && elevated_height >= 0.3) {
+  if (spins < 5 && elevated_height >= 0.4) {
     myservo.write(0);
     delay(1000);  // Espera 1 segundo
     myservo.write(180);
@@ -284,15 +284,15 @@ void appendToFile() {
     dataFile.println("Fecha: " + String(gps.date.year(), 6) + ":"  + String(gps.date.month(), 6) + ":" + String(gps.date.day(), 6));
     dataFile.println("Datos BMP280:");
     dataFile.println("Temperatura = " + String(bmp.readTemperature()) + " °C");
-    dataFile.println("Presión = " + String(bmp.readPressure()) + " Pa");
+    dataFile.println("Presión = " + String(bmp.readPressure() / 100) + " Pa");
     dataFile.println("Altitud aproximada = " + String(bmp.readAltitude(1013.25)) + " mts");
-    dataFile.println("Altura elevación = " + String(elevated_height) + " mts");
+    dataFile.println("Altura elevación = " + String(abs(elevated_height)) + " mts");
     dataFile.println("Datos MPU6050:");
-    dataFile.println("Gyro (deg) X=" + String(a.acceleration.x) + "m/s" + " Y=" + String(a.acceleration.y) + "m/s" + " Z=" + String(a.acceleration.z) + "m/s");
-    dataFile.println("Aceleración (g) X=" + String(a.gyro.x) + "°" + " Y=" + String(a.gyro.y) + "°" + " Z=" + String(a.gyro.z) + "°");
+    dataFile.println("Aceleración (m/s^2) X=" + String(a.acceleration.x) + "m/s^2" + " Y=" + String(a.acceleration.y) + "m/s^2" + " Z=" + String(a.acceleration.z) + "m/s^2");
+    dataFile.println("Gyro (deg) X=" + String(a.gyro.x) + "°" + " Y=" + String(a.gyro.y) + "°" + " Z=" + String(a.gyro.z) + "°");
     dataFile.println("FlujoCampoX: " + String(x) + " FlujoCampoY: " + String(y) + " FlujoCampoZ: " + String(z));
-    Serial.println("FlujoCampoX: " + String(x) + " FlujoCampoY: " + String(y) + " FlujoCampoZ: " + String(z));
-    Serial.println("cont: " + String(cont));
+    Serial.println("FlujoCampoX: " + String(x) + "uT" + " FlujoCampoY: " + String(y) + "uT" + " FlujoCampoZ: " + String(z) + "uT");
+    Serial.println("tiempo misión: " + String(cont));
     Serial.println("times: " + String(times));
 
     int azimut = compass.getAzimuth();
@@ -317,7 +317,7 @@ void appendToFile() {
     if ((azimut >= 247.5) && (azimut < 292.5))
       dataFile.print("Oeste");
     if ((azimut >= 292.5) && (azimut < 337.5))
-      dataFile.print("Noroeste");
+      dataFile.print ("Noroeste");
 
     dataFile.print(" Azimut: ");
     dataFile.println(azimut);
@@ -369,14 +369,14 @@ void printData() {
   Serial.println("BMP280 Data:");
   Serial.print(F("Temperature = "));
   Serial.print(bmp.readTemperature());
-  Serial.println(" *C");
+  Serial.println(" °C");
 
   Serial.print(F("Pressure = "));
   Serial.print(bmp.readPressure());
   Serial.println(" Pa");
 
   Serial.print(F("Approx altitude = "));
-  elevated_height = bmp.readAltitude() - initial_height;
+  elevated_height = abs(bmp.readAltitude() - initial_height);
   Serial.println(String(elevated_height) + "mts"); /* Adjusted to local prediction */
 
   int x, y, z;
